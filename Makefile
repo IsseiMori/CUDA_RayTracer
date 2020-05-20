@@ -2,7 +2,7 @@ NVCC = nvcc
 NVCCFLAGS = -arch=sm_30 
 
 SRCS = main.cu
-INCS = vec3.h ray.h
+INCS = vec3.h ray.h hitable.h hitable_list.h sphere.h
 
 cudart: cudart.o
 	$(NVCC) $(NVCCFLAGS) $(GENCODE_FLAGS) -o cudart cudart.o
