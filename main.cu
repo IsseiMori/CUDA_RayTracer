@@ -73,7 +73,7 @@ __global__ void render(vec3 *fb, int max_x, int max_y, int ns, camera **cam, hit
     for (int s = 0; s < ns; s++) {
     	float u = float(i+curand_uniform(&local_rand_state))/float(max_x);
 	    float v = float(j+curand_uniform(&local_rand_state))/float(max_y);
-	    ray r = (*cam)->get_ray(u,v);
+	    ray r = (*cam)->get_ray(u,v,&local_rand_state);
 	    col += color(r, world, &local_rand_state);
     }
     rand_state[pixel_index] = local_rand_state;
@@ -85,7 +85,7 @@ __global__ void render(vec3 *fb, int max_x, int max_y, int ns, camera **cam, hit
     
 }
 
-__global__ void create_world(hitable **d_list, hitable **d_world, camera **d_camera) {
+__global__ void create_world(hitable **d_list, hitable **d_world, camera **d_camera, int nx, int ny) {
 	if (threadIdx.x == 0 && blockIdx.x == 0) {
 		d_list[0] = new sphere(vec3(0,0,-1), 0.5,
                                new lambertian(vec3(0.1, 0.2, 0.5)));
@@ -98,7 +98,17 @@ __global__ void create_world(hitable **d_list, hitable **d_world, camera **d_cam
         d_list[4] = new sphere(vec3(-1,0,-1), -0.45,
                                new dielectric(1.5));
 		*d_world = new hitable_list(d_list, 5);
-		*d_camera = new camera();
+		vec3 lookfrom(3,3,2);
+        vec3 lookat(0,0,-1);
+        float dist_to_focus = (lookfrom-lookat).length();
+        float aperture = 2.0;
+        *d_camera   = new camera(lookfrom,
+                                 lookat,
+                                 vec3(0,1,0),
+                                 20.0,
+                                 float(nx)/float(ny),
+                                 aperture,
+                                 dist_to_focus);
 	}
 }
 
@@ -138,7 +148,7 @@ int main() {
 	checkCudaErrors(cudaMalloc((void**)&d_world, sizeof(hitable_list*)));
 	camera **d_camera;
 	checkCudaErrors(cudaMalloc((void**)&d_camera, sizeof(camera*)));
-	create_world<<<1,1>>>(d_list, d_world, d_camera);
+	create_world<<<1,1>>>(d_list, d_world, d_camera, image_width, image_height);
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaDeviceSynchronize());
 
